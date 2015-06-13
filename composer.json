@@ -1,0 +1,36 @@
+{
+    "name": "larium/hermes",
+    "description": "An http client implemention for psr7 request message.",
+    "keywords": ["psr7", "client", "http"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andreas Kollaros",
+            "email": "andreas@larium.net"
+        }
+    ],
+    "require": {
+        "php": ">=5.4",
+        "ext-curl": "*",
+        "psr/http-message": "~1.0"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "2.*",
+        "phpunit/phpunit": "4.6.*",
+        "zendframework/zend-diactoros": "~1.0"
+    },
+    "suggests": {
+        "zendframework/zend-diactoros": "PSR-7 HTTP Message implementation"
+    },
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Larium\\": "src/"
+        }
+    },
+    "scripts": {
+        "sniff": "vendor/bin/phpcs --standard=PSR1,PSR2 src/",
+        "phpunit": "phpunit"
+    }
+}
