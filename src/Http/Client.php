@@ -27,10 +27,7 @@ class Client implements ClientInterface
     private $info;
 
     /**
-     * Sends the given request to server.
-     *
-     * @param Psr\Http\Message\RequestInterface $request
-     * @return Psr\Http\Message\ResponseInterface
+     * {@inheritdoc}
      */
     public function send(RequestInterface $request)
     {
@@ -74,7 +71,7 @@ class Client implements ClientInterface
     /**
      * Gets curl info regardless of success or failed transaction.
      *
-     * @return mixed
+     * @return array
      */
     public function getInfo()
     {
@@ -83,10 +80,7 @@ class Client implements ClientInterface
 
     /**
      * Set an option value for curl client.
-     *
-     * @param integer $option
-     * @param string|integer $value
-     * @return void
+     * {@inheritdoc}
      */
     public function setOption($option, $value)
     {
@@ -94,11 +88,7 @@ class Client implements ClientInterface
     }
 
     /**
-     * Get the value of given option name, that has been applied to current
-     * client.
-     *
-     * @param integer $option
-     * @return void
+     * {@inheritdoc}
      */
     public function getOption($option)
     {
@@ -108,12 +98,9 @@ class Client implements ClientInterface
     }
 
     /**
-     * Mass assign options to curl client.
-     *
-     * @param array $options
-     * @return void
+     * {@inheritdoc}
      */
-    public function setOptions(array $options = [])
+    public function setOptions(array $options = array())
     {
         $this->options = array_replace($this->options, $options);
     }
