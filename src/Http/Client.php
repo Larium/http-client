@@ -26,6 +26,8 @@ class Client implements ClientInterface
 
     private $port;
 
+    private $info;
+
     /**
      * Sends the given request to server.
      *
@@ -34,16 +36,14 @@ class Client implements ClientInterface
      */
     public function send(RequestInterface $request)
     {
-        $url     = $this->resolveUrl($request);
-        $headers = $this->resolveHeaders($request);
-        $method  = $this->resolveMethod($request);
+        $this->resolveUrl($request);
+        $this->resolveHeaders($request);
+        $this->resolveMethod($request);
 
         $options = array(
             CURLOPT_HEADER          => 1,
             CURLINFO_HEADER_OUT     => 1,
-            CURLOPT_HTTPHEADER      => $headers,
             CURLOPT_RETURNTRANSFER  => 1,
-            CURLOPT_URL             => $url,
             //close connection when it has finished, not pooled for reuse
             CURLOPT_FORBID_REUSE    => 1,
             // Do not use cached connection
@@ -52,22 +52,35 @@ class Client implements ClientInterface
             CURLOPT_TIMEOUT         => 7,
         );
 
-        $options = $options + $this->options + $method;
+        $options = $options + $this->options;
 
         $handler = curl_init();
         curl_setopt_array($handler, $options);
 
         $result = curl_exec($handler);
 
-        $info = curl_getinfo($handler);
+        $this->info = curl_getinfo($handler);
 
         if (false === $result) {
-            throw new CurlException(curl_error($handler), curl_errno($handler));
+            $curl_error = curl_error($handler);
+            $curl_errno = curl_errno($handler);
+            curl_close($handler);
+            throw new CurlException($curl_error, $curl_errno);
         }
 
         curl_close($handler);
 
-        return $this->resolveResponse($result, $info);
+        return $this->resolveResponse($result);
+    }
+
+    /**
+     * Gets curl info regardless of success or failed transaction.
+     *
+     * @return mixed
+     */
+    public function getInfo()
+    {
+        return $this->info;
     }
 
     /**
@@ -120,8 +133,10 @@ class Client implements ClientInterface
         $this->options[CURLOPT_USERPWD] = "{$username}:{$password}";
     }
 
-    protected function resolveResponse($result, $info)
+    protected function resolveResponse($result)
     {
+        $info = $this->info;
+
         $statusCode     = $info['http_code'];
         $headersString  = substr($result, 0, $info['header_size']);
         $headers        = $this->resolveResponseHeaders($headersString);
@@ -195,29 +210,35 @@ class Client implements ClientInterface
             $headers[] = $name . ': ' . implode(", ", $values);
         }
 
-        return $headers;
+        $this->options[CURLOPT_HTTPHEADER] = $headers;
     }
 
     private function resolveMethod(RequestInterface $request)
     {
-        $options = [];
-
         switch ($request->getMethod()) {
             case static::METHOD_POST:
-                $options[CURLOPT_POST]       = 1;
-                $options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
+                $this->options[CURLOPT_POST]       = 1;
+                $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
             case static::METHOD_GET:
-                $options[CURLOPT_HTTPGET]    = 1;
+                $this->options[CURLOPT_HTTPGET]    = 1;
                 break;
             case static::METHOD_PUT:
-                $options[CURLOPT_POST]          = 1;
-                $options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PUT;
-                $options[CURLOPT_POSTFIELDS]    = $request->getBody()->__toString();
+                $this->options[CURLOPT_POST]          = 1;
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PUT;
+                $this->options[CURLOPT_POSTFIELDS]    = $request->getBody()->__toString();
+                break;
+            case static::METHOD_DELETE:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_DELETE;
+                break;
+            case static::METHOD_PATCH:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PATCH;
+                break;
+            case static::METHOD_HEAD:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_HEAD;
+                $this->options[CURLOPT_NOBODY]        = true;
                 break;
         }
-
-        return $options;
     }
 
     private function resolveUrl(RequestInterface $request)
@@ -232,13 +253,14 @@ class Client implements ClientInterface
 
         $port = 'https' == $uri->getScheme() ? 443 : $port;
 
-        $this->options[CURLOPT_PORT] = $port;
-
-        return $uri->getScheme()
+        $uri = $uri->getScheme()
             . '://'
             . $uri->getHost()
             . $uri->getPath()
             . ($uri->getQuery() ? '?' . $uri->getQuery() : null)
             . ($uri->getFragment() ? '#' . $uri->getFragment() : null);
+
+        $this->options[CURLOPT_PORT] = $port;
+        $this->options[CURLOPT_URL]  = $uri;
     }
 }

@@ -39,11 +39,61 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $request = new Request(new Uri($uri), Client::METHOD_POST, $stream);
 
-        $data = $this->unserializeResponse($this->client->send($request));
+        $response = $this->client->send($request);
+        $data = $this->unserializeResponse($response);
 
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertArrayHasKey('foo', $data['form']);
         $this->assertEquals('bar', $data['form']['foo']);
+    }
+
+    public function testHeadRequest()
+    {
+        $uri = 'http://www.httpbin.org/get';
+        $request = new Request(new Uri($uri), Client::METHOD_HEAD);
+
+        $response = $this->client->send($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+    }
+
+    public function testPutRequest()
+    {
+        $uri = 'http://www.httpbin.org/put';
+        $payload = ['foo' => 'bar'];
+        $stream = $this->client->createStreamFromArray($payload);
+        $request = new Request(new Uri($uri), Client::METHOD_PUT, $stream);
+
+        $response = $this->client->send($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+    }
+
+    public function testDeleteRequest()
+    {
+        $uri = 'http://www.httpbin.org/delete';
+        $request = new Request(new Uri($uri), Client::METHOD_DELETE);
+
+        $response = $this->client->send($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+    }
+
+    public function testHeaders()
+    {
+        $request = $this->createRequest('http://www.httpbin.org/get');
+        $request = $request
+            ->withHeader('Accept', 'application/json');
+
+        $this->client->setOption(Client::USER_AGENT, 'Larium http client');
+        $response = $this->client->send($request);
+
+        $info = $this->client->getInfo();
+        $request_header = $info['request_header'];
+
+        $this->assertContains('User-Agent', $request_header);
+        $this->assertContains('Larium', $request_header);
+        $this->assertContains('application/json', $request_header);
     }
 
     private function createRequest($uri, $method = Client::METHOD_GET)
