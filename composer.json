@@ -1,6 +1,6 @@
 {
-    "name": "larium/hermes",
-    "description": "An http client implemention for psr7 request message.",
+    "name": "larium/http-client",
+    "description": "An http client implemention compatible with psr-7 http message.",
     "keywords": ["psr7", "client", "http"],
     "type": "library",
     "license": "MIT",
@@ -13,15 +13,12 @@
     "require": {
         "php": ">=5.4",
         "ext-curl": "*",
-        "psr/http-message": "~1.0"
+        "psr/http-message": "~1.0",
+        "zendframework/zend-diactoros": "~1.0"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "2.*",
-        "phpunit/phpunit": "4.6.*",
-        "zendframework/zend-diactoros": "~1.0"
-    },
-    "suggests": {
-        "zendframework/zend-diactoros": "PSR-7 HTTP Message implementation"
+        "phpunit/phpunit": "4.6.*"
     },
     "minimum-stability": "stable",
     "autoload": {
