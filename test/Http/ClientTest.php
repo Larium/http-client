@@ -26,6 +26,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $data = $this->unserializeResponse($response);
 
+        $this->assertEquals(200, $response->getStatusCode());
         $this->assertEquals('www.httpbin.org', $data['headers']['Host']);
     }
 
@@ -40,6 +41,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $data = $this->unserializeResponse($this->client->send($request));
 
+        $this->assertEquals(200, $response->getStatusCode());
         $this->assertArrayHasKey('foo', $data['form']);
         $this->assertEquals('bar', $data['form']['foo']);
     }

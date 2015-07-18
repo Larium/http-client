@@ -126,16 +126,16 @@ class Client implements ClientInterface
 
     private function resolveResponseHeaders($headers)
     {
-        if (strpos($headers, self::UNIX_NEWLINE)) {
-            $newLine = self::UNIX_NEWLINE;
-        } else {
+        if (strpos($headers, self::WINDOWS_NEWLINE)) {
             $newLine = self::WINDOWS_NEWLINE;
+        } else {
+            $newLine = self::UNIX_NEWLINE;
         }
 
         $headerArray = [];
         $parts = explode($newLine, $headers);
         array_walk($parts, function (&$part) {
-            $part = trim(substr($part, 0, -1));
+            $part = trim($part);
         });
         $headers = array_filter($parts, 'strlen');
         $statusHeader = array_shift($headers);
