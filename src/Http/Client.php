@@ -26,6 +26,12 @@ class Client implements ClientInterface
 
     private $port;
 
+    /**
+     * Sends the given request to server.
+     *
+     * @param Psr\Http\Message\RequestInterface $request
+     * @return Psr\Http\Message\ResponseInterface
+     */
     public function send(RequestInterface $request)
     {
         $url     = $this->resolveUrl($request);
@@ -64,11 +70,25 @@ class Client implements ClientInterface
         return $this->resolveResponse($result, $info);
     }
 
+    /**
+     * Set an option value for curl client.
+     *
+     * @param integer $option
+     * @param string|integer $value
+     * @return void
+     */
     public function setOption($option, $value)
     {
         $this->options[$option] = $value;
     }
 
+    /**
+     * Get the value of given option name, that has been applied to current
+     * client.
+     *
+     * @param integer $option
+     * @return void
+     */
     public function getOption($option)
     {
         return array_key_exists($options, $this->options)
@@ -76,11 +96,25 @@ class Client implements ClientInterface
             : false;
     }
 
+    /**
+     * Mass assign options to curl client.
+     *
+     * @param array $options
+     * @return void
+     */
     public function setOptions(array $options = [])
     {
         $this->options = array_replace($this->options, $options);
     }
 
+    /**
+     * Allow setting a basic authentication direct to client instead from
+     * Uri.
+     *
+     * @param string $username
+     * @param string $password
+     * @return void
+     */
     public function setBasicAuthentication($username, $password)
     {
         $this->options[CURLOPT_USERPWD] = "{$username}:{$password}";
@@ -103,6 +137,12 @@ class Client implements ClientInterface
         return $response;
     }
 
+    /**
+     * Helper method to create a string stream from given array.
+     *
+     * @param array $params
+     * @return stream resource
+     */
     public function createStreamFromArray(array $params)
     {
         $string = "";
