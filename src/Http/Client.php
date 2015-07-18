@@ -24,8 +24,6 @@ class Client implements ClientInterface
 
     private $options = [];
 
-    private $port;
-
     private $info;
 
     /**
@@ -62,10 +60,10 @@ class Client implements ClientInterface
         $this->info = curl_getinfo($handler);
 
         if (false === $result) {
-            $curl_error = curl_error($handler);
-            $curl_errno = curl_errno($handler);
+            $curlError = curl_error($handler);
+            $curlErrno = curl_errno($handler);
             curl_close($handler);
-            throw new CurlException($curl_error, $curl_errno);
+            throw new CurlException($curlError, $curlErrno);
         }
 
         curl_close($handler);
@@ -104,7 +102,7 @@ class Client implements ClientInterface
      */
     public function getOption($option)
     {
-        return array_key_exists($options, $this->options)
+        return array_key_exists($option, $this->options)
             ? $this->options[$option]
             : false;
     }
@@ -181,10 +179,10 @@ class Client implements ClientInterface
 
     private function resolveResponseHeaders($headers)
     {
+        $newLine = self::UNIX_NEWLINE;
+
         if (strpos($headers, self::WINDOWS_NEWLINE)) {
             $newLine = self::WINDOWS_NEWLINE;
-        } else {
-            $newLine = self::UNIX_NEWLINE;
         }
 
         $headerArray = [];
@@ -193,7 +191,7 @@ class Client implements ClientInterface
             $part = trim($part);
         });
         $headers = array_filter($parts, 'strlen');
-        $statusHeader = array_shift($headers);
+        array_shift($headers); # remove status header.
         foreach ($headers as $header) {
             $info = explode(': ', $header, 2);
             $headerArray[$info[0]] = explode(', ', $info[1]);

@@ -96,6 +96,16 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $this->assertContains('application/json', $request_header);
     }
 
+    public function testBasicAuthentication()
+    {
+        $request = $this->createRequest('http://www.httpbin.org//basic-auth/john/s3cr3t');
+        $this->client->setBasicAuthentication('john', 's3cr3t');
+
+        $response = $this->client->send($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+    }
+
     private function createRequest($uri, $method = Client::METHOD_GET)
     {
         return new Request(new Uri($uri), $method);
