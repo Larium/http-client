@@ -30,7 +30,17 @@ class Client implements ClientInterface
     const SSL_VERIFY_HOST   = CURLOPT_SSL_VERIFYHOST;
     const USER_AGENT        = CURLOPT_USERAGENT;
 
-    private $options = [];
+    private $options = array(
+        CURLOPT_HEADER          => 1,
+        CURLINFO_HEADER_OUT     => 1,
+        CURLOPT_RETURNTRANSFER  => 1,
+        //close connection when it has finished, not pooled for reuse
+        CURLOPT_FORBID_REUSE    => 1,
+        // Do not use cached connection
+        CURLOPT_FRESH_CONNECT   => 1,
+        CURLOPT_CONNECTTIMEOUT  => 5,
+        CURLOPT_TIMEOUT         => 7,
+    );
 
     private $info;
 
@@ -43,25 +53,11 @@ class Client implements ClientInterface
         $this->resolveHeaders($request);
         $this->resolveMethod($request);
 
-        $options = array(
-            CURLOPT_HEADER          => 1,
-            CURLINFO_HEADER_OUT     => 1,
-            CURLOPT_RETURNTRANSFER  => 1,
-            //close connection when it has finished, not pooled for reuse
-            CURLOPT_FORBID_REUSE    => 1,
-            // Do not use cached connection
-            CURLOPT_FRESH_CONNECT   => 1,
-            CURLOPT_CONNECTTIMEOUT  => 5,
-            CURLOPT_TIMEOUT         => 7,
-        );
-
-        $options = $options + $this->options;
-
         $handler = curl_init();
-        curl_setopt_array($handler, $options);
-
-        $result = curl_exec($handler);
-
+        if (false === curl_setopt_array($handler, $this->options)) {
+            throw new CurlException('Invalid options for cUrl client');
+        }
+        $result     = curl_exec($handler);
         $this->info = curl_getinfo($handler);
 
         if (false === $result) {
@@ -111,6 +107,11 @@ class Client implements ClientInterface
     public function setOptions(array $options = array())
     {
         $this->options = array_replace($this->options, $options);
+    }
+
+    public function getOptions()
+    {
+        return $this->options;
     }
 
     /**
@@ -208,6 +209,11 @@ class Client implements ClientInterface
 
     private function resolveMethod(RequestInterface $request)
     {
+        unset($this->options[CURLOPT_CUSTOMREQUEST]);
+        unset($this->options[CURLOPT_POSTFIELDS]);
+        unset($this->options[CURLOPT_POST]);
+        unset($this->options[CURLOPT_HTTPGET]);
+
         switch ($request->getMethod()) {
             case static::METHOD_POST:
                 $this->options[CURLOPT_POST]       = 1;
