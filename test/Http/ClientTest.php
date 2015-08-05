@@ -88,6 +88,16 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
+    public function testPatchRequest()
+    {
+        $uri = 'http://www.httpbin.org/patch';
+        $request = new Request(new Uri($uri), Client::METHOD_PATCH);
+
+        $response = $this->client->send($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+    }
+
     public function testHeaders()
     {
         $request = $this->createRequest('http://www.httpbin.org/get');
@@ -107,12 +117,46 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
     public function testBasicAuthentication()
     {
-        $request = $this->createRequest('http://www.httpbin.org//basic-auth/john/s3cr3t');
+        $request = $this->createRequest('http://www.httpbin.org/basic-auth/john/s3cr3t');
         $this->client->setBasicAuthentication('john', 's3cr3t');
 
         $response = $this->client->send($request);
 
         $this->assertEquals(200, $response->getStatusCode());
+    }
+
+    /**
+     * @expectedException Larium\Http\Exception\CurlException
+     */
+    public function testErrorStatusCode()
+    {
+        $request = $this->createRequest('https://www.larium.net');
+        $response = $this->client->send($request);
+    }
+
+    public function testSetGetOptions()
+    {
+        $request = $this->createRequest('http://www.httpbin.org/get');
+        $this->client->setOption(CURLOPT_FORBID_REUSE, 0);
+        $this->assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
+        $options = $this->client->getOptions();
+        $this->assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
+    }
+
+    public function testSetArrayOptions()
+    {
+        $request = $this->createRequest('http://www.httpbin.org/get');
+
+        $this->client->setOptions(array(
+            CURLOPT_FORBID_REUSE => 0,
+            CURLOPT_FRESH_CONNECT => 0
+        ));
+
+        $this->assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
+        $this->assertEquals(0, $this->client->getOption(CURLOPT_FRESH_CONNECT));
+        $options = $this->client->getOptions();
+        $this->assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
+        $this->assertArrayHasKey(CURLOPT_FRESH_CONNECT, $options);
     }
 
     private function createRequest($uri, $method = Client::METHOD_GET)
