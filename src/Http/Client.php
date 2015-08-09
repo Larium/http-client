@@ -109,6 +109,9 @@ class Client implements ClientInterface
         $this->options = array_replace($this->options, $options);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getOptions()
     {
         return $this->options;

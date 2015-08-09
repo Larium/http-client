@@ -66,6 +66,13 @@ interface ClientInterface
     public function setOptions(array $options = array());
 
     /**
+     * Gets an array of option values assigned to client.
+     *
+     * @return array
+     */
+    public function getOptions();
+
+    /**
      * Gets raw info.
      *
      * @return mixed|array
