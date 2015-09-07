@@ -130,6 +130,39 @@ class Client implements ClientInterface
         $this->options[CURLOPT_USERPWD] = "{$username}:{$password}";
     }
 
+    /**
+     * Helper method to create a string stream from given array.
+     *
+     * @param array $params
+     * @return resource
+     */
+    public function createStreamFromArray(array $params)
+    {
+        $string = "";
+        foreach ($params as $key => $value) {
+            $string .= $key . '=' . urlencode(trim($value)) . '&';
+        }
+
+        $string = rtrim($string, "&");
+
+        return $this->createStream($string);
+    }
+
+    /**
+     * Helper method to create a string stream.
+     *
+     * @param string $string
+     * @return resource
+     */
+    public function createStream($string)
+    {
+        $stream = fopen('php://memory', 'r+');
+        fwrite($stream, $string);
+        rewind($stream);
+
+        return $stream;
+    }
+
     protected function resolveResponse($result)
     {
         $info = $this->info;
@@ -147,33 +180,6 @@ class Client implements ClientInterface
         }
 
         return $response;
-    }
-
-    /**
-     * Helper method to create a string stream from given array.
-     *
-     * @param array $params
-     * @return stream resource
-     */
-    public function createStreamFromArray(array $params)
-    {
-        $string = "";
-        foreach ($params as $key => $value) {
-            $string .= $key . '=' . urlencode(trim($value)) . '&';
-        }
-
-        $string = rtrim($string, "&");
-
-        return $this->createStream($string);
-    }
-
-    protected function createStream($string)
-    {
-        $stream = fopen('php://memory', 'r+');
-        fwrite($stream, $string);
-        rewind($stream);
-
-        return $stream;
     }
 
     private function resolveResponseHeaders($headers)
