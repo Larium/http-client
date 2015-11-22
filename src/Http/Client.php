@@ -195,8 +195,10 @@ class Client implements ClientInterface
         array_walk($parts, function (&$part) {
             $part = trim($part);
         });
-        $headers = array_filter($parts, 'strlen');
-        array_shift($headers); # remove status header.
+        $headers = array_filter($parts, function ($v, $k) {
+            return strlen($v) && false !== strpos($v, ':');
+        }, ARRAY_FILTER_USE_BOTH);
+
         foreach ($headers as $header) {
             $info = explode(': ', $header, 2);
             $headerArray[$info[0]] = explode(', ', $info[1]);
