@@ -11,11 +11,11 @@ In root directory of your project run through a console:
 ```bash
 $ composer require "larium/http-client":"~1.0"
 ```
-### Composer.json
+### Alternative with composer.json
 Include require line in your ```composer.json``` file
 ```json
 {
-	require: {
+	"require": {
     	"larium/http-client": "~1.0"
     }
 }
@@ -33,10 +33,13 @@ require_once 'vendor/autoload.php';
 
 ## Basic usage
 You can use any Request class that implements [PSR-7](http://www.php-fig.org/psr/psr-7/) HTTP Message interfaces, to create the Request instance.
+In this example, Zend Diactoros will be used.
 ```php
 <?php
 use Larium\Http\Client;
 use Larium\Http\Exception\ClientException;
+use Zend\Diactoros\Uri;
+use Zend\Diactoros\Request;
 
 $uri = (new Uri())->withScheme('http')->withHost('www.example.com');
 $request = (new Request())->withUri($uri);
