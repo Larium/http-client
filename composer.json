@@ -14,11 +14,13 @@
         "php": ">=5.4",
         "ext-curl": "*",
         "psr/http-message": "~1.0",
-        "zendframework/zend-diactoros": "~1.0"
+        "php-http/httplug": "~1.1.0",
+        "php-http/message": "~1.2.0",
+        "php-http/message-factory": "~1.0.2",
+        "php-http/discovery": "~1.1.0"
     },
     "require-dev": {
-        "squizlabs/php_codesniffer": "2.*",
-        "phpunit/phpunit": "4.6.*"
+        "zendframework/zend-diactoros": "~1.0"
     },
     "minimum-stability": "stable",
     "autoload": {
@@ -26,8 +28,7 @@
             "Larium\\": "src/"
         }
     },
-    "scripts": {
-        "sniff": "vendor/bin/phpcs --standard=PSR1,PSR2 src/",
-        "phpunit": "phpunit test/"
+    "provide": {
+        "php-http/client-implementation": "1.0"
     }
 }

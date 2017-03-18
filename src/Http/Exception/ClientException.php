@@ -13,9 +13,9 @@
 
 namespace Larium\Http\Exception;
 
-use Exception;
+use RuntimeException;
 
-class ClientException extends Exception
+class ClientException extends RuntimeException
 {
 
 }

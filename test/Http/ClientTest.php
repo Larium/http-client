@@ -31,7 +31,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $request = $this->createRequest($uri);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $data = $this->unserializeResponse($response);
 
@@ -48,7 +48,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $request = new Request(new Uri($uri), Client::METHOD_POST, $stream);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
         $data = $this->unserializeResponse($response);
 
         $this->assertEquals(200, $response->getStatusCode());
@@ -61,7 +61,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $uri = 'http://www.httpbin.org/get';
         $request = new Request(new Uri($uri), Client::METHOD_HEAD);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $this->assertEquals(200, $response->getStatusCode());
     }
@@ -73,7 +73,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $stream = $this->client->createStreamFromArray($payload);
         $request = new Request(new Uri($uri), Client::METHOD_PUT, $stream);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $this->assertEquals(200, $response->getStatusCode());
     }
@@ -83,7 +83,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $uri = 'http://www.httpbin.org/delete';
         $request = new Request(new Uri($uri), Client::METHOD_DELETE);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $this->assertEquals(200, $response->getStatusCode());
     }
@@ -93,7 +93,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $uri = 'http://www.httpbin.org/patch';
         $request = new Request(new Uri($uri), Client::METHOD_PATCH);
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $this->assertEquals(200, $response->getStatusCode());
     }
@@ -105,7 +105,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
             ->withHeader('Accept', 'application/json');
 
         $this->client->setOption(Client::USER_AGENT, 'Larium http client');
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $info = $this->client->getInfo();
         $request_header = $info['request_header'];
@@ -120,18 +120,18 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $request = $this->createRequest('http://www.httpbin.org/basic-auth/john/s3cr3t');
         $this->client->setBasicAuthentication('john', 's3cr3t');
 
-        $response = $this->client->send($request);
+        $response = $this->client->sendRequest($request);
 
         $this->assertEquals(200, $response->getStatusCode());
     }
 
     /**
-     * @expectedException Larium\Http\Exception\CurlException
+     * @expectedException Larium\Http\Exception\ClientException
      */
     public function testErrorStatusCode()
     {
-        $request = $this->createRequest('https://www.larium.net');
-        $response = $this->client->send($request);
+        $request = $this->createRequest('https://payments.larium.net');
+        $response = $this->client->sendRequest($request);
     }
 
     public function testSetGetOptions()

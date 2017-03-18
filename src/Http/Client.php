@@ -13,12 +13,24 @@
 
 namespace Larium\Http;
 
+use Http\Client\HttpClient;
+use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
-use Zend\Diactoros\Response;
-use Larium\Http\Exception\CurlException;
+use Larium\Http\Exception\ClientException;
+use Http\Discovery\StreamFactoryDiscovery;
+use Http\Discovery\MessageFactoryDiscovery;
 
-class Client implements ClientInterface
+class Client implements HttpClient
 {
+    const METHOD_GET        = 'GET';
+    const METHOD_POST       = 'POST';
+    const METHOD_PUT        = 'PUT';
+    const METHOD_DELETE     = 'DELETE';
+    const METHOD_HEAD       = 'HEAD';
+    const METHOD_PATCH      = 'PATCH';
+    const METHOD_CONNECT    = 'CONNECT';
+    const METHOD_OPTIONS    = 'OPTIONS';
+
     const UNIX_NEWLINE      = "\n";
 
     const WINDOWS_NEWLINE   = "\r\n";
@@ -44,27 +56,36 @@ class Client implements ClientInterface
 
     private $info;
 
+    private $messageFactory;
+
+    private $streamFactory;
+
+    public function __construct()
+    {
+        $this->messageFactory = MessageFactoryDiscovery::find();
+        $this->streamFactory = StreamFactoryDiscovery::find();
+    }
+
     /**
      * {@inheritdoc}
      */
-    public function send(RequestInterface $request)
+    public function sendRequest(RequestInterface $request)
     {
         $this->resolveUrl($request);
         $this->resolveHeaders($request);
         $this->resolveMethod($request);
 
         $handler = curl_init();
-        if (false === curl_setopt_array($handler, $this->options)) {
-            throw new CurlException('Invalid options for cUrl client');
-        }
-        $result     = curl_exec($handler);
+        curl_setopt_array($handler, $this->options);
+
+        $result = curl_exec($handler);
         $this->info = curl_getinfo($handler);
 
         if (false === $result) {
             $curlError = curl_error($handler);
             $curlErrno = curl_errno($handler);
             curl_close($handler);
-            throw new CurlException($curlError, $curlErrno);
+            throw new ClientException($curlError, $curlErrno);
         }
 
         curl_close($handler);
@@ -156,9 +177,7 @@ class Client implements ClientInterface
      */
     public function createStream($string)
     {
-        $stream = fopen('php://memory', 'r+');
-        fwrite($stream, $string);
-        rewind($stream);
+        $stream = $this->streamFactory->createStream($string);
 
         return $stream;
     }
@@ -167,14 +186,18 @@ class Client implements ClientInterface
     {
         $info = $this->info;
 
-        $statusCode     = $info['http_code'];
-        $headersString  = substr($result, 0, $info['header_size']);
-        $headers        = $this->resolveResponseHeaders($headersString);
-        $body           = substr($result, -$info['size_download']);
-        $stream         = $this->createStream($body);
+        $statusCode = $info['http_code'];
+        $headersString = substr($result, 0, $info['header_size']);
+        $headers = $this->resolveResponseHeaders($headersString);
+        $body = substr($result, -$info['size_download']);
+        $stream = $this->createStream($body);
 
-        $response = new Response($stream);
-        $response = $response->withStatus($statusCode);
+        $response = $this->messageFactory->createResponse(
+            $statusCode,
+            null,
+            [],
+            $stream
+        );
         foreach ($headers as $header => $values) {
             $response = $response->withHeader($header, $values);
         }
@@ -227,16 +250,16 @@ class Client implements ClientInterface
 
         switch ($request->getMethod()) {
             case static::METHOD_POST:
-                $this->options[CURLOPT_POST]       = 1;
+                $this->options[CURLOPT_POST] = 1;
                 $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
             case static::METHOD_GET:
-                $this->options[CURLOPT_HTTPGET]    = 1;
+                $this->options[CURLOPT_HTTPGET] = 1;
                 break;
             case static::METHOD_PUT:
-                $this->options[CURLOPT_POST]          = 1;
+                $this->options[CURLOPT_POST] = 1;
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PUT;
-                $this->options[CURLOPT_POSTFIELDS]    = $request->getBody()->__toString();
+                $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
             case static::METHOD_DELETE:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_DELETE;
@@ -246,7 +269,7 @@ class Client implements ClientInterface
                 break;
             case static::METHOD_HEAD:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_HEAD;
-                $this->options[CURLOPT_NOBODY]        = true;
+                $this->options[CURLOPT_NOBODY] = true;
                 break;
         }
     }
