@@ -50,8 +50,6 @@ class Client implements HttpClient
         CURLOPT_FORBID_REUSE    => 1,
         // Do not use cached connection
         CURLOPT_FRESH_CONNECT   => 1,
-        CURLOPT_CONNECTTIMEOUT  => 5,
-        CURLOPT_TIMEOUT         => 7,
     );
 
     private $info;
