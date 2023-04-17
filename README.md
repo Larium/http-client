@@ -3,12 +3,11 @@
 An http client wrapping curl php extension, compatible with [PSR-7](http://www.php-fig.org/psr/psr-7/) Http Message interfaces.
 
 * [Installation](#installation)
- * [Composer from command line](#composer-from-command-line)
- * [Composer from composer.json](#composer-from-composer.json)
+  * [Composer from command line](#composer-from-command-line)
+  * [Composer from composer.json](#composer-from-composer.json)
 * [Set Up](#set-up)
 * [Basic Usage](#basic-usage)
- * [Using Zend Diactoros](#using-diactoros)
- * [Using message factory](#using-message-factory)
+  * [Using message factory discovery](#using-message-factory-discovery)
 
 ## Installation
 You can install this library using [Composer](https://getcomposer.org)
@@ -41,47 +40,23 @@ require_once 'vendor/autoload.php';
 
 ## Basic usage
 
-## Using Diactoros
+## Using message factory discovery
 
-You can use any Request class that implements [PSR-7](http://www.php-fig.org/psr/psr-7/) HTTP Message interfaces, to create the Request instance.
-In this example, Zend Diactoros will be used.
-```php
-<?php
-
-use Zend\Diactoros\Uri;
-use Larium\Http\Client;
-use Zend\Diactoros\Request;
-use Larium\Http\Exception\ClientException;
-
-$uri = (new Uri())->withScheme('http')->withHost('www.example.com');
-$request = (new Request())->withUri($uri);
-$client = new Client();
-try {
-	$response = $client->send($request);
-    # Response is a Psr\Http\Message\ResponseInterface instance implementation.
-} catch (ClientException $e) {
-	//Resolve exception from client.
-}
-```
-
-## Using message factory
+You can use factory discovery to find any Request class that implements [PSR-7](http://www.php-fig.org/psr/psr-7/) HTTP Message interfaces, to create the Request instance.
 
 ```php
 <?php
 
 use Larium\Http\Client;
-use Larium\Http\Exception\ClientException;
-use Http\Discovery\MessageFactoryDiscovery;
+use Http\Discovery\Psr17FactoryDiscovery;
+use Psr\Http\Client\ClientExceptionInterface;
 
-$messageFactory = MessageFactoryDiscovery::find();
-
-$request = $messageFactory->createRequest('get', 'http://example.com');
-
+$request = Psr17FactoryDiscovery::findRequestFactory()->createRequest('GET', 'http://www.example.com');
 $client = new Client();
 try {
-	$response = $client->send($request);
-    # Response is a Psr\Http\Message\ResponseInterface instance implementation.
-} catch (ClientException $e) {
+	$response = $client->sendRequest($request);
+	# Response is a Psr\Http\Message\ResponseInterface instance implementation.
+} catch (ClientExceptionInterface $e) {
 	//Resolve exception from client.
 }
 ```
