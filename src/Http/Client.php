@@ -187,7 +187,7 @@ class Client implements ClientInterface
      * @deprecated 2.0.0 Use stream factory
      *
      * @param array $params
-     * @return resource
+     * @return StreamInterface
      */
     public function createStreamFromArray(array $params): StreamInterface
     {
@@ -319,7 +319,6 @@ class Client implements ClientInterface
         }
 
         $port = $uri->getPort() ?: 80;
-
         $port = 'https' == $uri->getScheme() ? 443 : $port;
 
         $this->options[CURLOPT_PORT] = $port;
