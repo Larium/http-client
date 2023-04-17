@@ -1,26 +1,26 @@
 <?php
 
-/* vim: set expandtab tabstop=4 shiftwidth=4 softtabstop=4: */
-
-/*
- * This file is part of the Larium Http Client package.
- *
- * (c) Andreas Kollaros <andreas@larium.net>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
+declare(strict_types=1);
 
 namespace Larium\Http;
 
-use Zend\Diactoros\Uri;
-use Zend\Diactoros\Request;
+use Http\Discovery\Psr17Factory;
+use Http\Discovery\Psr17FactoryDiscovery;
+use Larium\Http\Exception\ClientException;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\StreamInterface;
+use ReflectionClass;
 
-class ClientTest extends \PHPUnit_Framework_TestCase
+use function http_build_query;
+use function json_decode;
+
+class ClientTest extends TestCase
 {
-    protected $client;
+    protected ClientInterface $client;
 
-    public function setUp()
+    public function setUp(): void
     {
         $this->client = new Client();
     }
@@ -30,13 +30,11 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $uri = 'http://www.httpbin.org/get';
 
         $request = $this->createRequest($uri);
-
         $response = $this->client->sendRequest($request);
-
         $data = $this->unserializeResponse($response);
 
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals('www.httpbin.org', $data['headers']['Host']);
+        self::assertEquals(200, $response->getStatusCode());
+        self::assertEquals('www.httpbin.org', $data['headers']['Host']);
     }
 
     public function testPostRequest()
@@ -44,85 +42,88 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $uri = 'http://www.httpbin.org/post';
         $payload = ['foo' => 'bar'];
 
-        $stream = $this->client->createStreamFromArray($payload);
+        $stream = $this->createStreamFromArray($payload);
 
-        $request = new Request(new Uri($uri), Client::METHOD_POST, $stream);
+        $request = $this->createRequestWithStream(Client::METHOD_POST, $uri, $stream);
 
         $response = $this->client->sendRequest($request);
         $data = $this->unserializeResponse($response);
 
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertArrayHasKey('foo', $data['form']);
-        $this->assertEquals('bar', $data['form']['foo']);
+        self::assertEquals(200, $response->getStatusCode());
+        self::assertArrayHasKey('foo', $data['form']);
+        self::assertEquals('bar', $data['form']['foo']);
     }
 
     public function testHeadRequest()
     {
         $uri = 'http://www.httpbin.org/get';
-        $request = new Request(new Uri($uri), Client::METHOD_HEAD);
+        $request = $this->createRequest($uri, Client::METHOD_HEAD);
 
         $response = $this->client->sendRequest($request);
 
-        $this->assertEquals(200, $response->getStatusCode());
+        self::assertEquals(200, $response->getStatusCode());
     }
 
     public function testPutRequest()
     {
         $uri = 'http://www.httpbin.org/put';
         $payload = ['foo' => 'bar'];
-        $stream = $this->client->createStreamFromArray($payload);
-        $request = new Request(new Uri($uri), Client::METHOD_PUT, $stream);
+        $stream = $this->createStreamFromArray($payload);
+
+        $request = $this->createRequestWithStream(Client::METHOD_PUT, $uri, $stream);
 
         $response = $this->client->sendRequest($request);
 
-        $this->assertEquals(200, $response->getStatusCode());
+        self::assertEquals(200, $response->getStatusCode());
     }
 
     public function testDeleteRequest()
     {
         $uri = 'http://www.httpbin.org/delete';
-        $request = new Request(new Uri($uri), Client::METHOD_DELETE);
+        $request = $this->createRequest($uri, Client::METHOD_DELETE);
 
         $response = $this->client->sendRequest($request);
 
-        $this->assertEquals(200, $response->getStatusCode());
+        self::assertEquals(200, $response->getStatusCode());
     }
 
     public function testPatchRequest()
     {
         $uri = 'http://www.httpbin.org/patch';
-        $request = new Request(new Uri($uri), Client::METHOD_PATCH);
+        $request = $this->createRequest($uri, Client::METHOD_PATCH);
 
         $response = $this->client->sendRequest($request);
 
-        $this->assertEquals(200, $response->getStatusCode());
+        self::assertEquals(200, $response->getStatusCode());
     }
 
     public function testHeaders()
     {
         $request = $this->createRequest('http://www.httpbin.org/get');
         $request = $request
-            ->withHeader('Accept', 'application/json');
+            ->withHeader('Accept', 'application/json')
+            ->withHeader('User-Agent', 'Larium http client');
 
-        $this->client->setOption(Client::USER_AGENT, 'Larium http client');
-        $response = $this->client->sendRequest($request);
+        $this->client->sendRequest($request);
+        $refl = new ReflectionClass($this->client);
+        $refl->getProperty('info')->setAccessible(true);
+        $info = $refl->getProperty('info')->getValue($this->client);
 
-        $info = $this->client->getInfo();
         $request_header = $info['request_header'];
 
-        $this->assertContains('User-Agent', $request_header);
-        $this->assertContains('Larium', $request_header);
-        $this->assertContains('application/json', $request_header);
+        self::assertStringContainsString('User-Agent', $request_header);
+        self::assertStringContainsString('Larium', $request_header);
+        self::assertStringContainsString('application/json', $request_header);
     }
 
     public function testBasicAuthentication()
     {
         $request = $this->createRequest('http://www.httpbin.org/basic-auth/john/s3cr3t');
-        $this->client->setBasicAuthentication('john', 's3cr3t');
+        $request = $request->withHeader('Authorization', 'Basic ' . (base64_encode('john:s3cr3t')));
 
         $response = $this->client->sendRequest($request);
 
-        $this->assertEquals(200, $response->getStatusCode());
+        self::assertEquals(200, $response->getStatusCode());
     }
 
     /**
@@ -130,38 +131,54 @@ class ClientTest extends \PHPUnit_Framework_TestCase
      */
     public function testErrorStatusCode()
     {
-        $request = $this->createRequest('https://payments.larium.net');
-        $response = $this->client->sendRequest($request);
+        $this->expectException(ClientException::class);
+
+        $request = $this->createRequest('https://notexistingsubdomain.larium.net');
+        $this->client->sendRequest($request);
     }
 
     public function testSetGetOptions()
     {
-        $request = $this->createRequest('http://www.httpbin.org/get');
-        $this->client->setOption(CURLOPT_FORBID_REUSE, 0);
-        $this->assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
+        $this->client = new Client([CURLOPT_FORBID_REUSE => 0]);
+        self::assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
         $options = $this->client->getOptions();
-        $this->assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
+        self::assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
     }
 
     public function testSetArrayOptions()
     {
-        $request = $this->createRequest('http://www.httpbin.org/get');
-
-        $this->client->setOptions(array(
+        $this->client = new Client([
             CURLOPT_FORBID_REUSE => 0,
             CURLOPT_FRESH_CONNECT => 0
-        ));
+        ]);
 
-        $this->assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
-        $this->assertEquals(0, $this->client->getOption(CURLOPT_FRESH_CONNECT));
+        self::assertEquals(0, $this->client->getOption(CURLOPT_FORBID_REUSE));
+        self::assertEquals(0, $this->client->getOption(CURLOPT_FRESH_CONNECT));
         $options = $this->client->getOptions();
-        $this->assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
-        $this->assertArrayHasKey(CURLOPT_FRESH_CONNECT, $options);
+        self::assertArrayHasKey(CURLOPT_FORBID_REUSE, $options);
+        self::assertArrayHasKey(CURLOPT_FRESH_CONNECT, $options);
+    }
+
+    public function testShouldParseEmptyResponse(): void
+    {
+        $request = $this->createRequest('http://www.httpbin.org/status/204');
+
+        $response = $this->client->sendRequest($request);
+
+        self::assertEmpty($response->getBody()->__toString(), $response->getBody()->__toString());
+
     }
 
     private function createRequest($uri, $method = Client::METHOD_GET)
     {
-        return new Request(new Uri($uri), $method);
+        return (new Psr17Factory())->createRequest($method, $uri);
+    }
+
+    private function createRequestWithStream(string $method, string $uri, StreamInterface $stream): RequestInterface
+    {
+        $request = (new Psr17Factory())->createRequest($method, $uri);
+
+        return $request->withBody($stream);
     }
 
     private function unserializeResponse($response)
@@ -169,5 +186,12 @@ class ClientTest extends \PHPUnit_Framework_TestCase
         $string = $response->getBody()->__toString();
 
         return json_decode($string, true);
+    }
+
+    private function createStreamFromArray(array $payload): StreamInterface
+    {
+        $content = http_build_query($payload);
+
+        return Psr17FactoryDiscovery::findStreamFactory()->createStream($content);
     }
 }

@@ -13,36 +13,55 @@
 
 namespace Larium\Http;
 
-use Http\Client\HttpClient;
-use InvalidArgumentException;
-use Psr\Http\Message\RequestInterface;
+use Http\Discovery\Psr17FactoryDiscovery;
 use Larium\Http\Exception\ClientException;
-use Http\Discovery\StreamFactoryDiscovery;
-use Http\Discovery\MessageFactoryDiscovery;
+use Larium\Http\Exception\NetworkException;
+use Larium\Http\Exception\RequestException;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\StreamInterface;
 
-class Client implements HttpClient
+use function array_filter;
+use function array_walk;
+use function curl_close;
+use function curl_errno;
+use function curl_error;
+use function curl_exec;
+use function curl_getinfo;
+use function curl_init;
+use function curl_setopt_array;
+use function explode;
+use function http_build_query;
+use function strlen;
+use function strpos;
+use function trim;
+
+class Client implements ClientInterface
 {
-    const METHOD_GET        = 'GET';
-    const METHOD_POST       = 'POST';
-    const METHOD_PUT        = 'PUT';
-    const METHOD_DELETE     = 'DELETE';
-    const METHOD_HEAD       = 'HEAD';
-    const METHOD_PATCH      = 'PATCH';
-    const METHOD_CONNECT    = 'CONNECT';
-    const METHOD_OPTIONS    = 'OPTIONS';
+    public const METHOD_GET        = 'GET';
+    public const METHOD_POST       = 'POST';
+    public const METHOD_PUT        = 'PUT';
+    public const METHOD_DELETE     = 'DELETE';
+    public const METHOD_HEAD       = 'HEAD';
+    public const METHOD_PATCH      = 'PATCH';
+    public const METHOD_CONNECT    = 'CONNECT';
+    public const METHOD_OPTIONS    = 'OPTIONS';
 
-    const UNIX_NEWLINE      = "\n";
+    private const UNIX_NEWLINE      = "\n";
 
-    const WINDOWS_NEWLINE   = "\r\n";
+    private const WINDOWS_NEWLINE   = "\r\n";
 
     # Expose some common curl options as Client constants.
-    const CONNECT_TIMEOUT   = CURLOPT_CONNECTTIMEOUT;
-    const TIMEOUT           = CURLOPT_TIMEOUT;
-    const SSL_VERIFY_PEER   = CURLOPT_SSL_VERIFYPEER;
-    const SSL_VERIFY_HOST   = CURLOPT_SSL_VERIFYHOST;
-    const USER_AGENT        = CURLOPT_USERAGENT;
+    public const CONNECT_TIMEOUT   = CURLOPT_CONNECTTIMEOUT;
+    public const TIMEOUT           = CURLOPT_TIMEOUT;
+    public const SSL_VERIFY_PEER   = CURLOPT_SSL_VERIFYPEER;
+    public const SSL_VERIFY_HOST   = CURLOPT_SSL_VERIFYHOST;
+    public const USER_AGENT        = CURLOPT_USERAGENT;
 
-    private $options = array(
+    private $options = [
         CURLOPT_HEADER          => 1,
         CURLINFO_HEADER_OUT     => 1,
         CURLOPT_RETURNTRANSFER  => 1,
@@ -50,24 +69,25 @@ class Client implements HttpClient
         CURLOPT_FORBID_REUSE    => 1,
         // Do not use cached connection
         CURLOPT_FRESH_CONNECT   => 1,
-    );
+    ];
 
-    private $info;
+    private array $info = [];
 
-    private $messageFactory;
+    private ResponseFactoryInterface $responseFactory;
 
-    private $streamFactory;
+    private StreamFactoryInterface $streamFactory;
 
-    public function __construct()
+    public function __construct(array $options = [])
     {
-        $this->messageFactory = MessageFactoryDiscovery::find();
-        $this->streamFactory = StreamFactoryDiscovery::find();
+        $this->responseFactory = Psr17FactoryDiscovery::findResponseFactory();
+        $this->streamFactory = Psr17FactoryDiscovery::findStreamFactory();
+        $this->options = array_replace($this->options, $options);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function sendRequest(RequestInterface $request)
+    public function sendRequest(RequestInterface $request): ResponseInterface
     {
         $this->resolveUrl($request);
         $this->resolveHeaders($request);
@@ -79,41 +99,52 @@ class Client implements HttpClient
         $result = curl_exec($handler);
         $this->info = curl_getinfo($handler);
 
-        if (false === $result) {
-            $curlError = curl_error($handler);
-            $curlErrno = curl_errno($handler);
-            curl_close($handler);
-            throw new ClientException($curlError, $curlErrno);
+        $curlError = curl_error($handler);
+        $curlErrno = curl_errno($handler);
+        curl_close($handler);
+
+        if (in_array($curlErrno, [
+            CURLE_COULDNT_RESOLVE_PROXY,
+            CURLE_COULDNT_RESOLVE_HOST,
+            CURLE_COULDNT_CONNECT,
+            CURLE_OPERATION_TIMEOUTED,
+            CURLE_SSL_CONNECT_ERROR
+        ])) {
+            throw new NetworkException($request, $curlError, 500);
         }
 
-        curl_close($handler);
+        if ($result === false) {
+            throw new ClientException($curlError, $curlErrno);
+        }
 
         return $this->resolveResponse($result);
     }
 
     /**
      * Gets curl info regardless of success or failed transaction.
+     * @deprecated 2.0.0
      *
      * @return array
      */
-    public function getInfo()
+    public function getInfo(): array
     {
         return $this->info;
     }
 
     /**
      * Set an option value for curl client.
-     * {@inheritdoc}
+     *
+     * @deprecated 2.0.0
      */
-    public function setOption($option, $value)
+    public function setOption(int $option, mixed $value): void
     {
         $this->options[$option] = $value;
     }
 
     /**
-     * {@inheritdoc}
+     * @deprecated 2.0.0
      */
-    public function getOption($option)
+    public function getOption($option): mixed
     {
         return array_key_exists($option, $this->options)
             ? $this->options[$option]
@@ -121,17 +152,17 @@ class Client implements HttpClient
     }
 
     /**
-     * {@inheritdoc}
+     * @deprecated 2.0.0
      */
-    public function setOptions(array $options = array())
+    public function setOptions(array $options = []): void
     {
         $this->options = array_replace($this->options, $options);
     }
 
     /**
-     * {@inheritdoc}
+     * @deprecated 2.0.0
      */
-    public function getOptions()
+    public function getOptions(): array
     {
         return $this->options;
     }
@@ -139,12 +170,13 @@ class Client implements HttpClient
     /**
      * Allow setting a basic authentication direct to client instead from
      * Uri.
+     * @deprecated 2.0.0
      *
      * @param string $username
      * @param string $password
      * @return void
      */
-    public function setBasicAuthentication($username, $password)
+    public function setBasicAuthentication($username, $password): void
     {
         $this->options[CURLOPT_USERPWD] = "{$username}:{$password}";
     }
@@ -152,17 +184,14 @@ class Client implements HttpClient
     /**
      * Helper method to create a string stream from given array.
      *
+     * @deprecated 2.0.0 Use stream factory
+     *
      * @param array $params
-     * @return resource
+     * @return StreamInterface
      */
-    public function createStreamFromArray(array $params)
+    public function createStreamFromArray(array $params): StreamInterface
     {
-        $string = "";
-        foreach ($params as $key => $value) {
-            $string .= $key . '=' . urlencode(trim($value)) . '&';
-        }
-
-        $string = rtrim($string, "&");
+        $string = http_build_query($params);
 
         return $this->createStream($string);
     }
@@ -170,32 +199,33 @@ class Client implements HttpClient
     /**
      * Helper method to create a string stream.
      *
+     * @deprecated 2.0.0 Use stream factory
+     *
      * @param string $string
-     * @return resource
+     * @return StreamInterface
      */
-    public function createStream($string)
+    public function createStream(string $string): StreamInterface
     {
         $stream = $this->streamFactory->createStream($string);
 
         return $stream;
     }
 
-    protected function resolveResponse($result)
+    private function resolveResponse(string $result): ResponseInterface
     {
         $info = $this->info;
 
         $statusCode = $info['http_code'];
-        $headersString = substr($result, 0, $info['header_size']);
+        $headerSize = intval($info['header_size']);
+        $headersString = substr($result, 0, $headerSize);
         $headers = $this->resolveResponseHeaders($headersString);
-        $body = substr($result, -$info['size_download']);
-        $stream = $this->createStream($body);
+        $bodySize = intval($info['size_download']);
+        $body = $bodySize === 0 ? '' : substr($result, $bodySize * -1);
+        $stream = $this->streamFactory->createStream($body);
 
-        $response = $this->messageFactory->createResponse(
-            $statusCode,
-            null,
-            [],
-            $stream
-        );
+        $response = $this->responseFactory->createResponse($statusCode)
+            ->withBody($stream);
+
         foreach ($headers as $header => $values) {
             $response = $response->withHeader($header, $values);
         }
@@ -203,7 +233,7 @@ class Client implements HttpClient
         return $response;
     }
 
-    private function resolveResponseHeaders($headers)
+    private function resolveResponseHeaders(string $headers): array
     {
         $newLine = self::UNIX_NEWLINE;
 
@@ -228,7 +258,7 @@ class Client implements HttpClient
         return $headerArray;
     }
 
-    private function resolveHeaders(RequestInterface $request)
+    private function resolveHeaders(RequestInterface $request): void
     {
         $headers = [];
 
@@ -239,7 +269,7 @@ class Client implements HttpClient
         $this->options[CURLOPT_HTTPHEADER] = $headers;
     }
 
-    private function resolveMethod(RequestInterface $request)
+    private function resolveMethod(RequestInterface $request): void
     {
         unset($this->options[CURLOPT_CUSTOMREQUEST]);
         unset($this->options[CURLOPT_POSTFIELDS]);
@@ -248,6 +278,9 @@ class Client implements HttpClient
 
         switch ($request->getMethod()) {
             case static::METHOD_POST:
+                if ($request->getBody()->isSeekable() === false) {
+                    throw new RequestException($request, 'Request body is not seekable', 400);
+                }
                 $this->options[CURLOPT_POST] = 1;
                 $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
@@ -255,6 +288,9 @@ class Client implements HttpClient
                 $this->options[CURLOPT_HTTPGET] = 1;
                 break;
             case static::METHOD_PUT:
+                if ($request->getBody()->isSeekable() === false) {
+                    throw new RequestException($request, 'Request body is not seekable', 400);
+                }
                 $this->options[CURLOPT_POST] = 1;
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PUT;
                 $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
@@ -269,10 +305,12 @@ class Client implements HttpClient
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_HEAD;
                 $this->options[CURLOPT_NOBODY] = true;
                 break;
+            default:
+                throw new RequestException($request, 'Invalid request method', 400);
         }
     }
 
-    private function resolveUrl(RequestInterface $request)
+    private function resolveUrl(RequestInterface $request): void
     {
         $uri = $request->getUri();
 
@@ -281,17 +319,9 @@ class Client implements HttpClient
         }
 
         $port = $uri->getPort() ?: 80;
-
         $port = 'https' == $uri->getScheme() ? 443 : $port;
 
-        $uri = $uri->getScheme()
-            . '://'
-            . $uri->getHost()
-            . $uri->getPath()
-            . ($uri->getQuery() ? '?' . $uri->getQuery() : null)
-            . ($uri->getFragment() ? '#' . $uri->getFragment() : null);
-
         $this->options[CURLOPT_PORT] = $port;
-        $this->options[CURLOPT_URL]  = $uri;
+        $this->options[CURLOPT_URL]  = $uri->__toString();
     }
 }
