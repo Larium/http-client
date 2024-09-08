@@ -251,8 +251,8 @@ class Client implements ClientInterface
         }, ARRAY_FILTER_USE_BOTH);
 
         foreach ($headers as $header) {
-            $info = explode(': ', $header, 2);
-            $headerArray[$info[0]] = explode(', ', $info[1]);
+            $info = explode(':', $header, 2);
+            $headerArray[$info[0]] = explode(', ', trim($info[1] ?? ''));
         }
 
         return $headerArray;
