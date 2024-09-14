@@ -297,6 +297,7 @@ class Client implements ClientInterface
                 break;
             case static::METHOD_DELETE:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_DELETE;
+                $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
             case static::METHOD_PATCH:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PATCH;
