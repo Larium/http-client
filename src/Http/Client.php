@@ -47,6 +47,7 @@ class Client implements ClientInterface
     public const METHOD_DELETE     = 'DELETE';
     public const METHOD_HEAD       = 'HEAD';
     public const METHOD_PATCH      = 'PATCH';
+    public const METHOD_TRACE      = 'TRACE';
     public const METHOD_CONNECT    = 'CONNECT';
     public const METHOD_OPTIONS    = 'OPTIONS';
 
@@ -301,9 +302,22 @@ class Client implements ClientInterface
                 break;
             case static::METHOD_PATCH:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_PATCH;
+                $this->options[CURLOPT_POSTFIELDS] = $request->getBody()->__toString();
                 break;
             case static::METHOD_HEAD:
                 $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_HEAD;
+                $this->options[CURLOPT_NOBODY] = true;
+                break;
+            case static::METHOD_OPTIONS:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_OPTIONS;
+                $this->options[CURLOPT_NOBODY] = true;
+                break;
+            case static::METHOD_CONNECT:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_CONNECT;
+                $this->options[CURLOPT_NOBODY] = true;
+                break;
+            case static::METHOD_TRACE:
+                $this->options[CURLOPT_CUSTOMREQUEST] = static::METHOD_TRACE;
                 $this->options[CURLOPT_NOBODY] = true;
                 break;
             default:
